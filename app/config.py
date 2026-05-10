@@ -5,8 +5,8 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     """Application settings from environment variables."""
     
-    # Database
-    database_url: str = "postgresql://user:password@localhost:5432/pesaflux_db"
+    # Database - Use SQLite by default (no external DB needed)
+    database_url: str = "sqlite:///./pesaflux.db"
     
     # PesaFlux API
     pesaflux_api_key: str = "PSFXmLezf0Zf"
@@ -17,12 +17,14 @@ class Settings(BaseSettings):
     callback_url: str = "http://localhost:8000/callback"
     
     # Server
-    debug: bool = True
-    secret_key: str = "your-secret-key-change-in-production"
+    debug: bool = False  # Set to False for production
+    secret_key: str = "pesaflux-secret-key-2024-production"
     
     class Config:
         env_file = ".env"
         case_sensitive = False
+        # Allow environment variables to override defaults
+        extra = "allow"
 
 @lru_cache()
 def get_settings() -> Settings:
