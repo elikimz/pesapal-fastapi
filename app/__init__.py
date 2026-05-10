@@ -1,1 +1,1 @@
-"""Pesaflux STK Push backend package."""
+"""PesaFlux Payment Integration Backend."""

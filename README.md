@@ -1,58 +1,138 @@
-# Pesaflux STK Push FastAPI Backend
+# PesaFlux Payment Integration Backend
 
-This repository contains a clean FastAPI backend for initiating M-Pesa STK Push requests through the Pesaflux API. The backend exposes a single payment endpoint consumed by the frontend UI.
+A production-ready FastAPI backend for PesaFlux STK Push payments with PostgreSQL database and webhook support.
 
-> **Payment flow:** Frontend UI → FastAPI Backend → Pesaflux API → M-Pesa STK Push → User phone.
+## Features
 
-## Project structure
+- ✅ FastAPI with async support
+- ✅ PostgreSQL with SQLAlchemy ORM
+- ✅ PesaFlux STK Push integration
+- ✅ Webhook callback handling
+- ✅ Transaction tracking
+- ✅ Error handling and logging
+- ✅ Environment-based configuration
 
-```text
+## Project Structure
+
+```
 app/
-├── main.py
+├── main.py              # FastAPI app initialization
+├── config.py            # Configuration management
+├── models.py            # SQLAlchemy models
+├── schemas.py           # Pydantic schemas
+├── routers/
+│   ├── payments.py      # Payment endpoints
+│   └── callbacks.py     # Webhook endpoints
 ├── services/
-│   └── pesaflux.py
-├── routes/
-│   └── payments.py
-└── core/
-    └── config.py
+│   ├── pesaflux.py      # PesaFlux API client
+│   └── transactions.py  # Transaction service
+└── database.py          # Database setup
 ```
 
-## Environment variables
+## Setup
 
-Create a `.env` file from `.env.example` and set the required values. The live credentials should not be hardcoded in source files.
-
-```env
-API_KEY=PSFXmLezf0Zf
-EMAIL=frankkhayumbi10@gmail.com
-PESAFLUX_BASE_URL=https://api.pesaflux.co.ke/v1
-REQUEST_TIMEOUT_SECONDS=30
-```
-
-## Run locally
+### 1. Install Dependencies
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
+```
+
+### 2. Configure Environment
+
+```bash
+cp .env.example .env
+# Edit .env with your database URL and PesaFlux credentials
+```
+
+### 3. Initialize Database
+
+```bash
+alembic upgrade head
+```
+
+### 4. Run Server
+
+```bash
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-## API
+## API Endpoints
 
-### `POST /pay`
+### POST /pay
+Initiate STK Push payment
 
-Request body:
-
+**Request:**
 ```json
 {
-  "amount": "1",
-  "phone": "2547XXXXXXXX",
-  "reference": "Order 1001"
+  "phone": "254712345678",
+  "amount": 100
 }
 ```
 
-The endpoint validates that the phone number is in the `2547XXXXXXXX` format, sends the request to `https://api.pesaflux.co.ke/v1/initiatestk`, and returns the Pesaflux response directly to the frontend.
+**Response:**
+```json
+{
+  "status": "success",
+  "message": "STK push sent",
+  "reference": "TXN123456",
+  "data": {...}
+}
+```
 
-## Important note
+### POST /callback
+Receive payment status from PesaFlux
 
-The business name shown in the M-Pesa STK prompt is controlled by Safaricom and Pesaflux. This backend does not attempt to change or hide the **Paying to** name.
+**Request (from PesaFlux):**
+```json
+{
+  "reference": "TXN123456",
+  "status": "success",
+  "amount": 100,
+  "phone": "254712345678"
+}
+```
+
+### GET /transactions
+List all transactions
+
+### GET /transactions/{reference}
+Get transaction details
+
+## Database Schema
+
+### transactions table
+- id: Primary key
+- phone: Customer phone number
+- amount: Payment amount
+- reference: Unique transaction reference
+- status: pending/success/failed
+- pesaflux_response: Raw API response
+- created_at: Timestamp
+- updated_at: Timestamp
+
+## Error Handling
+
+All errors return standardized responses:
+
+```json
+{
+  "status": "error",
+  "message": "Error description",
+  "error_code": "ERROR_CODE"
+}
+```
+
+## Logging
+
+Logs are printed to console. Configure logging in `config.py`.
+
+## Production Deployment
+
+1. Set `DEBUG=False` in `.env`
+2. Use a production database (managed PostgreSQL)
+3. Set a strong `SECRET_KEY`
+4. Configure CORS properly
+5. Use HTTPS for callbacks
+6. Set up monitoring and alerts
