@@ -1,64 +1,58 @@
-# Pesaflux Payment API
+# Pesaflux STK Push FastAPI Backend
 
-A minimal FastAPI backend that initiates M-Pesa STK Push payments via [Pesaflux](https://api.pesaflux.co.ke).
+This repository contains a clean FastAPI backend for initiating M-Pesa STK Push requests through the Pesaflux API. The backend exposes a single payment endpoint consumed by the frontend UI.
 
-## Setup
+> **Payment flow:** Frontend UI → FastAPI Backend → Pesaflux API → M-Pesa STK Push → User phone.
+
+## Project structure
+
+```text
+app/
+├── main.py
+├── services/
+│   └── pesaflux.py
+├── routes/
+│   └── payments.py
+└── core/
+    └── config.py
+```
+
+## Environment variables
+
+Create a `.env` file from `.env.example` and set the required values. The live credentials should not be hardcoded in source files.
+
+```env
+API_KEY=PSFXmLezf0Zf
+EMAIL=frankkhayumbi10@gmail.com
+PESAFLUX_BASE_URL=https://api.pesaflux.co.ke/v1
+REQUEST_TIMEOUT_SECONDS=30
+```
+
+## Run locally
 
 ```bash
-cp .env.example .env
-# Edit .env and fill in your Pesaflux credentials
+python -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
-uvicorn app.main:app --reload
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-## Environment Variables
+## API
 
-| Variable | Description |
-|---|---|
-| `PESAFLUX_API_KEY` | API key from your Pesaflux Linked Accounts page |
-| `PESAFLUX_EMAIL` | Email used to log in to Pesaflux |
-| `PESAFLUX_BASE_URL` | Defaults to `https://api.pesaflux.co.ke` |
-| `DATABASE_URL` | PostgreSQL async URL (e.g. `postgresql+asyncpg://...`) |
+### `POST /pay`
 
-## API Endpoints
+Request body:
 
-### `POST /payment/initiate`
-
-Initiate an STK Push to the customer's phone.
-
-**Request body:**
 ```json
 {
-  "phone": "0712345678",
-  "amount": 100
+  "amount": "1",
+  "phone": "2547XXXXXXXX",
+  "reference": "Order 1001"
 }
 ```
 
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Request sent successfully.",
-  "transaction_request_id": "SOFTPID...",
-  "raw": { ... }
-}
-```
+The endpoint validates that the phone number is in the `2547XXXXXXXX` format, sends the request to `https://api.pesaflux.co.ke/v1/initiatestk`, and returns the Pesaflux response directly to the frontend.
 
-### `POST /payment/status`
+## Important note
 
-Check the status of a previously initiated transaction.
-
-**Request body:**
-```json
-{
-  "transaction_request_id": "SOFTPID..."
-}
-```
-
-### `GET /`
-
-Health check — returns `{"status": "Pesaflux Payment API running 🚀"}`.
-
-## Docs
-
-Interactive API docs available at `http://localhost:8000/docs` when running locally.
+The business name shown in the M-Pesa STK prompt is controlled by Safaricom and Pesaflux. This backend does not attempt to change or hide the **Paying to** name.
