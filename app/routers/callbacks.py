@@ -7,7 +7,7 @@ from app.schemas import CallbackRequest, ErrorResponse
 from app.services.transactions import TransactionService
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/api", tags=["callbacks"])
+router = APIRouter(tags=["callbacks"])
 
 @router.post("/callback")
 async def handle_callback(

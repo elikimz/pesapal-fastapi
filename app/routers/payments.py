@@ -7,7 +7,7 @@ from app.schemas import PaymentRequest, PaymentResponse, ErrorResponse, Transact
 from app.services.transactions import TransactionService
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/api", tags=["payments"])
+router = APIRouter(tags=["payments"])
 
 @router.post("/pay", response_model=PaymentResponse)
 async def initiate_payment(
@@ -28,8 +28,19 @@ async def initiate_payment(
                 detail="Invalid phone format. Use 254XXXXXXXXX"
             )
         
-        # Create transaction
-        transaction = TransactionService.create_transaction(db, request)
+        # Convert amount to float
+        try:
+            amount_float = float(request.amount)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid amount format"
+            )
+        
+        # Create transaction with converted amount
+        from app.schemas import PaymentRequest as PR
+        payment_req = PR(phone=request.phone, amount=str(amount_float), reference=request.reference)
+        transaction = TransactionService.create_transaction(db, payment_req)
         logger.info(f"Created transaction: {transaction.reference}")
         
         # Initiate payment with PesaFlux
@@ -51,7 +62,7 @@ async def initiate_payment(
             detail="Payment initiation failed"
         )
 
-@router.get("/transactions", response_model=list[TransactionSchema])
+@router.get("/api/transactions", response_model=list[TransactionSchema])
 async def list_transactions(
     skip: int = 0,
     limit: int = 100,
@@ -60,7 +71,7 @@ async def list_transactions(
     """List all transactions."""
     return TransactionService.list_transactions(db, skip, limit)
 
-@router.get("/transactions/{reference}", response_model=TransactionSchema)
+@router.get("/api/transactions/{reference}", response_model=TransactionSchema)
 async def get_transaction(
     reference: str,
     db: Session = Depends(get_db)

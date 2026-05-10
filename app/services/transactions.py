@@ -16,9 +16,15 @@ class TransactionService:
         """Create a new transaction."""
         reference = f"TXN{uuid.uuid4().hex[:12].upper()}"
         
+        # Convert amount to float
+        try:
+            amount_float = float(request.amount)
+        except (ValueError, TypeError):
+            amount_float = 0.0
+        
         transaction = Transaction(
             phone=request.phone,
-            amount=request.amount,
+            amount=amount_float,
             reference=reference,
             status="pending"
         )

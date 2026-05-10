@@ -6,7 +6,8 @@ from typing import Optional, Any
 class PaymentRequest(BaseModel):
     """Payment initiation request."""
     phone: str = Field(..., description="Customer phone number (e.g., 254712345678)")
-    amount: float = Field(..., gt=0, description="Payment amount")
+    amount: str = Field(..., description="Payment amount")
+    reference: Optional[str] = Field(default="", description="Transaction reference (optional)")
 
 class PaymentResponse(BaseModel):
     """Payment response."""
