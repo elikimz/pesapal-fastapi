@@ -1,15 +1,14 @@
 """Application configuration."""
 from functools import lru_cache
-from typing import Optional
 from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    """Application settings loaded from environment variables."""
+    """Application settings."""
 
-    # PesaFlux API credentials (Optional at startup to prevent crashes)
-    api_key: Optional[str] = None
-    email: Optional[str] = None
+    # PesaFlux API credentials (Hardcoded as requested)
+    api_key: str = "PSFXmLezf0Zf"
+    email: str = "frankkhayumbi10@gmail.com"
     pesaflux_base_url: str = "https://api.pesaflux.co.ke/v1"
 
     # CORS – comma-separated list of allowed origins
