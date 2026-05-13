@@ -1,5 +1,6 @@
 """Payment endpoints."""
 import logging
+import uuid
 import requests
 
 from fastapi import APIRouter, HTTPException, status
@@ -64,26 +65,29 @@ async def stk_push(request: STKPushRequest) -> STKPushResponse:
 
     - **phone**: Customer phone in format 254XXXXXXXXX
     - **amount**: Amount in KES (must be > 0)
-    - **reference**: Unique order / transaction reference
+    - **reference**: (Optional) Unique order / transaction reference
     """
+    # Auto-generate reference if not provided
+    reference = request.reference or f"PAY-{uuid.uuid4().hex[:8].upper()}"
+
     logger.info(
         "Initiating STK push | phone=%s | amount=%s | reference=%s",
         request.phone,
         request.amount,
-        request.reference,
+        reference,
     )
 
     pesaflux_data = _initiate_stk_push(
         amount=request.amount,
         msisdn=request.phone,
-        reference=request.reference,
+        reference=reference,
     )
 
-    logger.info("Pesaflux response for reference %s: %s", request.reference, pesaflux_data)
+    logger.info("Pesaflux response for reference %s: %s", reference, pesaflux_data)
 
     return STKPushResponse(
         status="success",
         message="STK Push sent. Please check your phone and enter your M-Pesa PIN.",
-        reference=request.reference,
+        reference=reference,
         data=pesaflux_data,
     )

@@ -16,11 +16,10 @@ class STKPushRequest(BaseModel):
         gt=0,
         description="Payment amount in KES (must be greater than 0)",
     )
-    reference: str = Field(
-        ...,
-        min_length=1,
+    reference: Optional[str] = Field(
+        None,
         max_length=100,
-        description="Unique transaction reference / order ID",
+        description="Optional unique transaction reference / order ID. If not provided, one will be generated.",
     )
 
     @field_validator("phone")
