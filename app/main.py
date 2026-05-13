@@ -1,58 +1,78 @@
 """FastAPI application entry point."""
 import logging
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.database import engine
-from app.models import Base
-from app.routers import payments, callbacks
-from app.config import get_settings
 
-# Configure logging
+from app.config import get_settings
+from app.routers import payments
+
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format="%(asctime)s  %(levelname)-8s  %(name)s  %(message)s",
 )
 logger = logging.getLogger(__name__)
 
+# ---------------------------------------------------------------------------
+# App
+# ---------------------------------------------------------------------------
 settings = get_settings()
 
-# Create database tables
-Base.metadata.create_all(bind=engine)
-
-# Create FastAPI app
 app = FastAPI(
-    title="PesaFlux Payment API",
-    description="Payment integration with PesaFlux STK Push",
-    version="1.0.0"
+    title="PesaFlux STK Push API",
+    description=(
+        "Minimal FastAPI service that exposes a single endpoint for initiating "
+        "M-Pesa STK Push payments via the Pesaflux gateway."
+    ),
+    version="2.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
 )
 
-# Add CORS middleware
+# ---------------------------------------------------------------------------
+# CORS
+# ---------------------------------------------------------------------------
+origins = [o.strip() for o in settings.allowed_origins.split(",")]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure properly in production
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Include routers
+# ---------------------------------------------------------------------------
+# Routers
+# ---------------------------------------------------------------------------
 app.include_router(payments.router)
-app.include_router(callbacks.router)
 
-@app.get("/health")
-async def health_check():
-    """Health check endpoint."""
-    return {"status": "ok"}
 
-@app.get("/")
+# ---------------------------------------------------------------------------
+# Root / Health
+# ---------------------------------------------------------------------------
+@app.get("/", tags=["meta"])
 async def root():
-    """Root endpoint."""
+    """API information."""
     return {
-        "name": "PesaFlux Payment API",
-        "version": "1.0.0",
-        "docs": "/docs"
+        "name": "PesaFlux STK Push API",
+        "version": "2.0.0",
+        "docs": "/docs",
     }
 
+
+@app.get("/health", tags=["meta"])
+async def health():
+    """Health-check endpoint."""
+    return {"status": "ok"}
+
+
+# ---------------------------------------------------------------------------
+# Dev entry-point
+# ---------------------------------------------------------------------------
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)

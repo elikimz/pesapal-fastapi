@@ -2,31 +2,25 @@
 from functools import lru_cache
 from pydantic_settings import BaseSettings
 
+
 class Settings(BaseSettings):
-    """Application settings from environment variables."""
-    
-    # Database - Use SQLite by default (no external DB needed)
-    database_url: str = "sqlite:///./pesaflux.db"
-    
-    # PesaFlux API
-    pesaflux_api_key: str = "PSFXmLezf0Zf"
-    pesaflux_email: str = "frankkhayumbi10@gmail.com"
+    """Application settings loaded from environment variables."""
+
+    # PesaFlux API credentials
+    api_key: str
+    email: str
     pesaflux_base_url: str = "https://api.pesaflux.co.ke/v1"
-    
-    # Callback
-    callback_url: str = "http://localhost:8000/callback"
-    
-    # Server
-    debug: bool = False  # Set to False for production
-    secret_key: str = "pesaflux-secret-key-2024-production"
-    
+
+    # CORS – comma-separated list of allowed origins
+    allowed_origins: str = "*"
+
     class Config:
         env_file = ".env"
         case_sensitive = False
-        # Allow environment variables to override defaults
-        extra = "allow"
+        extra = "ignore"
+
 
 @lru_cache()
 def get_settings() -> Settings:
-    """Get cached settings instance."""
+    """Return a cached Settings instance."""
     return Settings()

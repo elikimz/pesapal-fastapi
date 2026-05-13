@@ -1,88 +1,89 @@
 """Payment endpoints."""
 import logging
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
-from app.database import get_db
-from app.schemas import PaymentRequest, PaymentResponse, ErrorResponse, TransactionSchema
-from app.services.transactions import TransactionService
+import requests
+
+from fastapi import APIRouter, HTTPException, status
+
+from app.config import get_settings
+from app.schemas import STKPushRequest, STKPushResponse
 
 logger = logging.getLogger(__name__)
-router = APIRouter(tags=["payments"])
+router = APIRouter(prefix="/api/payments", tags=["payments"])
+settings = get_settings()
 
-@router.post("/pay", response_model=PaymentResponse)
-async def initiate_payment(
-    request: PaymentRequest,
-    db: Session = Depends(get_db)
-):
-    """
-    Initiate STK Push payment.
-    
-    - **phone**: Customer phone number (e.g., 254712345678)
-    - **amount**: Payment amount (must be > 0)
-    """
+
+def _initiate_stk_push(amount: float, msisdn: str, reference: str) -> dict:
+    """Call the Pesaflux STK Push API and return the parsed JSON response."""
+    url = f"{settings.pesaflux_base_url}/initiatestk"
+    payload = {
+        "api_key": settings.api_key,
+        "email": settings.email,
+        "amount": amount,
+        "msisdn": msisdn,
+        "reference": reference,
+    }
+    headers = {"Content-Type": "application/json"}
+
     try:
-        # Validate phone format
-        if not request.phone.startswith("254") or len(request.phone) != 12:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid phone format. Use 254XXXXXXXXX"
-            )
-        
-        # Convert amount to float
-        try:
-            amount_float = float(request.amount)
-        except ValueError:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid amount format"
-            )
-        
-        # Create transaction with converted amount
-        from app.schemas import PaymentRequest as PR
-        payment_req = PR(phone=request.phone, amount=str(amount_float), reference=request.reference)
-        transaction = TransactionService.create_transaction(db, payment_req)
-        logger.info(f"Created transaction: {transaction.reference}")
-        
-        # Initiate payment with PesaFlux
-        pesaflux_response = TransactionService.initiate_payment(db, transaction)
-        
-        return PaymentResponse(
-            status="success",
-            message="STK push sent to your phone",
-            reference=transaction.reference,
-            data=pesaflux_response
-        )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Payment initiation error: {str(e)}")
+        response = requests.post(url, json=payload, headers=headers, timeout=30)
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.Timeout:
+        logger.error("Pesaflux API request timed out")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Payment initiation failed"
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail="Payment gateway timed out. Please try again.",
+        )
+    except requests.exceptions.HTTPError as exc:
+        logger.error("Pesaflux API returned HTTP %s: %s", exc.response.status_code, exc.response.text)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Payment gateway returned an error. Please try again later.",
+        )
+    except requests.exceptions.RequestException as exc:
+        logger.error("Pesaflux API connection error: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Could not reach the payment gateway. Please try again later.",
         )
 
-@router.get("/api/transactions", response_model=list[TransactionSchema])
-async def list_transactions(
-    skip: int = 0,
-    limit: int = 100,
-    db: Session = Depends(get_db)
-):
-    """List all transactions."""
-    return TransactionService.list_transactions(db, skip, limit)
 
-@router.get("/api/transactions/{reference}", response_model=TransactionSchema)
-async def get_transaction(
-    reference: str,
-    db: Session = Depends(get_db)
-):
-    """Get transaction by reference."""
-    transaction = TransactionService.get_transaction(db, reference)
-    
-    if not transaction:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Transaction not found"
-        )
-    
-    return transaction
+@router.post(
+    "/stk-push",
+    response_model=STKPushResponse,
+    summary="Initiate M-Pesa STK Push",
+    description=(
+        "Send an STK Push prompt to the customer's M-Pesa phone number. "
+        "The customer will receive a PIN prompt on their phone to complete the payment."
+    ),
+    status_code=status.HTTP_200_OK,
+)
+async def stk_push(request: STKPushRequest) -> STKPushResponse:
+    """
+    Initiate an STK Push payment via Pesaflux.
+
+    - **phone**: Customer phone in format 254XXXXXXXXX
+    - **amount**: Amount in KES (must be > 0)
+    - **reference**: Unique order / transaction reference
+    """
+    logger.info(
+        "Initiating STK push | phone=%s | amount=%s | reference=%s",
+        request.phone,
+        request.amount,
+        request.reference,
+    )
+
+    pesaflux_data = _initiate_stk_push(
+        amount=request.amount,
+        msisdn=request.phone,
+        reference=request.reference,
+    )
+
+    logger.info("Pesaflux response for reference %s: %s", request.reference, pesaflux_data)
+
+    return STKPushResponse(
+        status="success",
+        message="STK Push sent. Please check your phone and enter your M-Pesa PIN.",
+        reference=request.reference,
+        data=pesaflux_data,
+    )
