@@ -15,6 +15,14 @@ settings = get_settings()
 
 def _initiate_stk_push(amount: float, msisdn: str, reference: str) -> dict:
     """Call the Pesaflux STK Push API and return the parsed JSON response."""
+    # Check if credentials are configured
+    if not settings.api_key or not settings.email:
+        logger.error("Pesaflux API credentials (API_KEY or EMAIL) are not configured in environment variables.")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Payment gateway is not configured. Please set API_KEY and EMAIL in environment variables.",
+        )
+
     url = f"{settings.pesaflux_base_url}/initiatestk"
     payload = {
         "api_key": settings.api_key,
